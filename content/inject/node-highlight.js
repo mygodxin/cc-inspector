@@ -2,7 +2,7 @@
  * CC Inspector - 节点高亮模块
  * 在游戏画面中高亮显示选中的节点
  */
-(function() {
+(function () {
   const utils = window.__CCInspector?.utils;
   if (!utils) {
     console.error('[CC Inspector] cc-utils.js 未加载');
@@ -21,6 +21,13 @@
     highlightNode(uuid) {
       const cc = utils.getCC();
       if (!cc) return;
+
+      // 检查是否是 FairyGUI 节点
+      const fairygui = window.__CCInspector?.fairygui;
+      if (fairygui && uuid.startsWith('fgui_')) {
+        this.highlightFairyGUINode(uuid, fairygui);
+        return;
+      }
 
       const scene = utils.getScene();
       const node = utils.getNodeByUuid(scene, uuid);
@@ -43,10 +50,128 @@
     },
 
     /**
+     * 高亮显示 FairyGUI 节点
+     */
+    highlightFairyGUINode(uuid, fairygui) {
+      try {
+        const fguiModule = fairygui.getFGUIModule();
+        if (!fguiModule || !fguiModule.GRoot) return;
+
+        const gRoot = fguiModule.GRoot.inst;
+        if (!gRoot) return;
+
+        // 查找 GObject
+        const fguiNode = fairygui.findFairyGUINodeByUuid(null, uuid);
+        if (!fguiNode || !fguiNode.gObject) return;
+
+        const gObject = fguiNode.gObject;
+
+        // 获取 GObject 的世界坐标边界框（已经是屏幕坐标）
+        const screenRect = this.getGObjectWorldBounds(gObject);
+        if (!screenRect) return;
+
+        // 显示高亮
+        this.showHighlightOverlay(screenRect);
+      } catch (err) {
+        console.warn('[CC Inspector] 高亮 FairyGUI 节点失败', err);
+      }
+    },
+
+    /**
+     * 获取 GObject 的世界坐标边界框
+     * 使用 FairyGUI 的 localToGlobal 方法
+     */
+    getGObjectWorldBounds(gObject) {
+      try {
+        const width = gObject.width || 0;
+        const height = gObject.height || 0;
+
+        console.log('[CC Inspector] getGObjectWorldBounds - gObject:', gObject.name, 'width:', width, 'height:', height);
+
+        // 使用 FairyGUI 的 localToGlobal 方法获取世界坐标
+        if (gObject.localToGlobal) {
+          // 获取左上角和右下角的世界坐标
+          const topLeft = gObject.localToGlobal(0, 0);
+          const bottomRight = gObject.localToGlobal(width, height);
+
+          console.log('[CC Inspector] - topLeft:', topLeft, 'bottomRight:', bottomRight);
+
+          if (!topLeft || !bottomRight) return null;
+
+          // 获取 Canvas 的位置
+          const canvas = document.querySelector('canvas');
+          if (!canvas) return null;
+
+          const canvasRect = canvas.getBoundingClientRect();
+          console.log('[CC Inspector] - canvasRect:', canvasRect);
+
+          // localToGlobal 返回的是相对于 Canvas 内容区域的坐标
+          // 需要加上 Canvas 在浏览器窗口中的偏移
+          const result = {
+            x: canvasRect.left + topLeft.x,
+            y: canvasRect.top + topLeft.y,
+            width: Math.abs(bottomRight.x - topLeft.x),
+            height: Math.abs(bottomRight.y - topLeft.y)
+          };
+          console.log('[CC Inspector] - result:', result);
+          return result;
+        }
+
+        console.log('[CC Inspector] - no localToGlobal');
+        return null;
+      } catch (err) {
+        console.warn('[CC Inspector] 获取 GObject 边界失败', err);
+        return null;
+      }
+    },
+
+    /**
+     * 将 FairyGUI 坐标转换为屏幕坐标
+     * FairyGUI 的 localToGlobal 返回的是相对于浏览器窗口的坐标
+     */
+    fguiToScreen(fguiBounds) {
+      try {
+        // localToGlobal 已经返回相对于浏览器窗口的坐标，直接使用
+        return {
+          left: fguiBounds.x,
+          top: fguiBounds.y,
+          width: fguiBounds.width,
+          height: fguiBounds.height
+        };
+      } catch (err) {
+        console.warn('[CC Inspector] FairyGUI 坐标转换失败', err);
+        return null;
+      }
+    },
+
+    /**
+     * 获取 GObject 的世界坐标
+     */
+    getGObjectWorldPosition(gObject) {
+      let x = gObject.x || 0;
+      let y = gObject.y || 0;
+
+      // 累加所有父节点的坐标
+      let parent = gObject.parent;
+      while (parent) {
+        x += parent.x || 0;
+        y += parent.y || 0;
+        parent = parent.parent;
+      }
+
+      return { x, y };
+    },
+
+    /**
      * 获取节点的世界坐标边界框
      */
     getNodeWorldBounds(node, cc) {
       try {
+        // Scene 节点不支持 getWorldPosition，直接返回 null
+        if (node.isScene || (node.uuid && !node.parent && !node._parent)) {
+          return null;
+        }
+
         let width, height, anchorX, anchorY;
         let worldPos = { x: 0, y: 0 };
 
@@ -83,8 +208,20 @@
         if (node.worldPosition) {
           worldPos = { x: node.worldPosition.x, y: node.worldPosition.y };
         } else if (node.getWorldPosition) {
-          const wp = node.getWorldPosition();
-          worldPos = { x: wp.x, y: wp.y };
+          try {
+            const wp = node.getWorldPosition();
+            if (wp) {
+              worldPos = { x: wp.x, y: wp.y };
+            }
+          } catch (e) {
+            // getWorldPosition 可能失败，使用备用方法
+            if (node.convertToWorldSpaceAR) {
+              const wp = node.convertToWorldSpaceAR(cc.v2(0, 0));
+              worldPos = { x: wp.x, y: wp.y };
+            } else {
+              worldPos = { x: node.x || 0, y: node.y || 0 };
+            }
+          }
         } else if (node.convertToWorldSpaceAR) {
           const wp = node.convertToWorldSpaceAR(cc.v2(0, 0));
           worldPos = { x: wp.x, y: wp.y };
@@ -106,7 +243,7 @@
         // 计算世界坐标下的边界框
         const scaledWidth = width * Math.abs(scaleX);
         const scaledHeight = height * Math.abs(scaleY);
-        
+
         return {
           x: worldPos.x - scaledWidth * anchorX,
           y: worldPos.y - scaledHeight * anchorY,
@@ -128,7 +265,7 @@
         if (!canvas) return null;
 
         const canvasRect = canvas.getBoundingClientRect();
-        
+
         // 获取可视尺寸
         let visibleWidth, visibleHeight;
         if (cc.view && cc.view.getVisibleSize) {
@@ -154,7 +291,7 @@
         // Cocos 坐标系原点在左下角，y轴向上
         // 屏幕坐标系原点在左上角，y轴向下
         const cocosTopY = worldBounds.y + worldBounds.height;
-        
+
         // 转换到屏幕坐标
         const screenX = canvasRect.left + worldBounds.x * scaleX;
         const screenY = canvasRect.top + (visibleHeight - cocosTopY) * scaleY;

@@ -2,7 +2,7 @@
  * CC Inspector - 节点属性模块
  * 负责获取和设置节点属性
  */
-(function() {
+(function () {
   const utils = window.__CCInspector?.utils;
   if (!utils) {
     console.error('[CC Inspector] cc-utils.js 未加载');
@@ -15,19 +15,19 @@
       if (value === undefined) return;
       group.properties.push({ name, value, type, editable: true });
     },
-    
+
     addVec2(group, name, v) {
       group.properties.push({ name, type: 'vec2', editable: true, x: v.x || 0, y: v.y || 0 });
     },
-    
+
     addVec3(group, name, v) {
       group.properties.push({ name, type: 'vec3', editable: true, x: v.x || 0, y: v.y || 0, z: v.z || 0 });
     },
-    
+
     addSize(group, name, s) {
       group.properties.push({ name, type: 'size', editable: true, width: s.width || 0, height: s.height || 0 });
     },
-    
+
     addColor(group, name, c) {
       group.properties.push({ name, type: 'color', editable: true, r: c.r || 0, g: c.g || 0, b: c.b || 0, a: c.a !== undefined ? c.a : 255 });
     },
@@ -36,7 +36,7 @@
     getProps(node) {
       if (!node) return [];
       const result = [];
-      
+
       try {
         // Node基本属性
         const nodeProps = { name: 'Node', properties: [] };
@@ -46,11 +46,11 @@
           addedNodeProps.add(name);
           nodeProps.properties.push({ name, value, type, editable: true, ...extra });
         };
-        
+
         // 基础属性
-        try { if (node.name !== undefined) addUniqueNodeProp('name', node.name, 'string'); } catch(e) {}
-        try { if (node.active !== undefined) addUniqueNodeProp('active', node.active, 'boolean'); } catch(e) {}
-        
+        try { if (node.name !== undefined) addUniqueNodeProp('name', node.name, 'string'); } catch (e) { }
+        try { if (node.active !== undefined) addUniqueNodeProp('active', node.active, 'boolean'); } catch (e) { }
+
         // 位置 - 多分量
         try {
           if (node.position) {
@@ -61,12 +61,12 @@
             if (node.y !== undefined) addUniqueNodeProp('y', node.y, 'number');
             if (node.z !== undefined) addUniqueNodeProp('z', node.z, 'number');
           }
-        } catch(e) {}
-        
+        } catch (e) { }
+
         // 旋转
-        try { if (node.angle !== undefined) addUniqueNodeProp('angle', node.angle, 'number'); } catch(e) {}
-        try { if (node.eulerAngles) { addedNodeProps.add('eulerAngles'); this.addVec3(nodeProps, 'eulerAngles', node.eulerAngles); } } catch(e) {}
-        
+        try { if (node.angle !== undefined) addUniqueNodeProp('angle', node.angle, 'number'); } catch (e) { }
+        try { if (node.eulerAngles) { addedNodeProps.add('eulerAngles'); this.addVec3(nodeProps, 'eulerAngles', node.eulerAngles); } } catch (e) { }
+
         // 缩放
         try {
           if (node.scale && typeof node.scale === 'object') {
@@ -77,8 +77,8 @@
             if (node.scaleY !== undefined) addUniqueNodeProp('scaleY', node.scaleY, 'number');
             if (node.scaleZ !== undefined) addUniqueNodeProp('scaleZ', node.scaleZ, 'number');
           }
-        } catch(e) {}
-        
+        } catch (e) { }
+
         // 锚点和尺寸 (3.x 移到了 UITransform)
         const is3x = utils.is3x();
         let uiTransform = null;
@@ -95,8 +95,8 @@
             addedNodeProps.add('anchor');
             this.addVec2(nodeProps, 'anchor', { x: node.anchorX ?? 0, y: node.anchorY ?? 0 });
           }
-        } catch(e) {}
-        
+        } catch (e) { }
+
         // 尺寸
         try {
           if (uiTransform) {
@@ -109,23 +109,30 @@
             addedNodeProps.add('size');
             this.addSize(nodeProps, 'size', { width: node.width ?? 0, height: node.height ?? 0 });
           }
-        } catch(e) {}
-        
+        } catch (e) { }
+
         // 透明度和颜色
-        try { if (node.opacity !== undefined) addUniqueNodeProp('opacity', node.opacity, 'number'); } catch(e) {}
-        try { if (node.color) { addedNodeProps.add('color'); this.addColor(nodeProps, 'color', node.color); } } catch(e) {}
-        
+        try { if (node.opacity !== undefined) addUniqueNodeProp('opacity', node.opacity, 'number'); } catch (e) { }
+        try { if (node.color) { addedNodeProps.add('color'); this.addColor(nodeProps, 'color', node.color); } } catch (e) { }
+
         // 层级
-        try { if (node.zIndex !== undefined) addUniqueNodeProp('zIndex', node.zIndex, 'number'); } catch(e) {}
+        try { if (node.zIndex !== undefined) addUniqueNodeProp('zIndex', node.zIndex, 'number'); } catch (e) { }
         try {
           if (node.layer !== undefined) {
             addUniqueNodeProp('layer', node.layer, 'layer', { options: utils.getLayers() });
           }
-        } catch(e) {}
+        } catch (e) { }
+
+        // 检查是否为 FairyGUI 节点
+        const fairygui = window.__CCInspector?.fairygui;
+        if (fairygui && fairygui.isFairyGUINode(node)) {
+          const fguiProps = fairygui.getFairyGUIProps(node);
+          result.push(...fguiProps);
+        }
 
         // 对 Node 也进行一次通用扫描，以防有自定义扩展属性
         this.addGenericProps(node, nodeProps, addedNodeProps);
-        
+
         result.push(nodeProps);
 
         // 组件属性
@@ -135,20 +142,20 @@
           try {
             const compName = utils.getComponentName(comp) || 'Component';
             const compProps = { name: compName, properties: [] };
-            
+
             // 通用组件属性
-            try { if (comp.enabled !== undefined) this.addProp(compProps, 'enabled', comp.enabled, 'boolean'); } catch(e) {}
-            
+            try { if (comp.enabled !== undefined) this.addProp(compProps, 'enabled', comp.enabled, 'boolean'); } catch (e) { }
+
             // 根据组件类型添加特定属性
             this.addComponentProps(comp, compName, compProps);
-            
+
             // UUID只读 (已隐藏)
             // try { if (comp.uuid) compProps.properties.push({ name: 'uuid', value: comp.uuid, type: 'string', editable: false }); } catch(e) {}
-            
+
             if (compProps.properties.length > 0) result.push(compProps);
-          } catch(e) {}
+          } catch (e) { }
         });
-      } catch(e) {}
+      } catch (e) { }
 
       return result;
     },
@@ -164,7 +171,7 @@
       const isWidget = compName.includes('Widget');
       const isProgressBar = compName.includes('ProgressBar');
       const isToggle = compName.includes('Toggle');
-      
+
       // 记录已添加的属性名，避免重复
       const addedProps = new Set();
       const addUniqueProp = (name, value, type, extra = {}) => {
@@ -174,47 +181,47 @@
       };
 
       if (isSprite) {
-        try { if (comp.spriteFrame) { addUniqueProp('spriteFrame', comp.spriteFrame.name || comp.spriteFrame._name || 'SpriteFrame', 'string', { editable: false }); } } catch(e) {}
+        try { if (comp.spriteFrame) { addUniqueProp('spriteFrame', comp.spriteFrame.name || comp.spriteFrame._name || 'SpriteFrame', 'string', { editable: false }); } } catch (e) { }
         try {
           if (comp.type !== undefined) {
             addUniqueProp('type', comp.type, 'enum', { options: utils.getSpriteTypes() });
           }
-        } catch(e) {}
+        } catch (e) { }
         try {
           if (comp.sizeMode !== undefined) {
             addUniqueProp('sizeMode', comp.sizeMode, 'enum', { options: utils.getSpriteSizeModes() });
           }
-        } catch(e) {}
+        } catch (e) { }
         try {
           if (comp.fillType !== undefined) {
             addUniqueProp('fillType', comp.fillType, 'enum', { options: utils.getSpriteFillTypes() });
           }
-        } catch(e) {}
-        try { if (comp.color) { addedProps.add('color'); this.addColor(compProps, 'color', comp.color); } } catch(e) {}
+        } catch (e) { }
+        try { if (comp.color) { addedProps.add('color'); this.addColor(compProps, 'color', comp.color); } } catch (e) { }
       } else if (isLabel) {
-        try { if (comp.string !== undefined) { addUniqueProp('string', comp.string, 'string'); } } catch(e) {}
+        try { if (comp.string !== undefined) { addUniqueProp('string', comp.string, 'string'); } } catch (e) { }
         try {
           if (comp.horizontalAlign !== undefined) {
             addUniqueProp('horizontalAlign', comp.horizontalAlign, 'enum', { options: utils.getLabelHorizontalAligns() });
           }
-        } catch(e) {}
+        } catch (e) { }
         try {
           if (comp.verticalAlign !== undefined) {
             addUniqueProp('verticalAlign', comp.verticalAlign, 'enum', { options: utils.getLabelVerticalAligns() });
           }
-        } catch(e) {}
+        } catch (e) { }
         try {
           if (comp.overflow !== undefined) {
             addUniqueProp('overflow', comp.overflow, 'enum', { options: utils.getLabelOverflows() });
           }
-        } catch(e) {}
-        try { if (comp.color) { addedProps.add('color'); this.addColor(compProps, 'color', comp.color); } } catch(e) {}
+        } catch (e) { }
+        try { if (comp.color) { addedProps.add('color'); this.addColor(compProps, 'color', comp.color); } } catch (e) { }
       } else if (isButton) {
-        try { if (comp.interactable !== undefined) { addUniqueProp('interactable', comp.interactable, 'boolean'); } } catch(e) {}
-        try { if (comp.normalColor) { addedProps.add('normalColor'); this.addColor(compProps, 'normalColor', comp.normalColor); } } catch(e) {}
+        try { if (comp.interactable !== undefined) { addUniqueProp('interactable', comp.interactable, 'boolean'); } } catch (e) { }
+        try { if (comp.normalColor) { addedProps.add('normalColor'); this.addColor(compProps, 'normalColor', comp.normalColor); } } catch (e) { }
       } else if (isUITransform) {
-        try { if (comp.contentSize) { addedProps.add('contentSize'); this.addSize(compProps, 'contentSize', comp.contentSize); } } catch(e) {}
-        try { if (comp.anchorPoint) { addedProps.add('anchorPoint'); this.addVec2(compProps, 'anchorPoint', comp.anchorPoint); } } catch(e) {}
+        try { if (comp.contentSize) { addedProps.add('contentSize'); this.addSize(compProps, 'contentSize', comp.contentSize); } } catch (e) { }
+        try { if (comp.anchorPoint) { addedProps.add('anchorPoint'); this.addVec2(compProps, 'anchorPoint', comp.anchorPoint); } } catch (e) { }
       }
 
       // 无论是否是内置组件，最后都进行通用属性扫描，以显示所有可见属性
@@ -226,7 +233,7 @@
      */
     addGenericProps(comp, compProps, addedProps = new Set()) {
       const keys = new Set();
-      
+
       // 1. 获取实例上的所有属性
       for (const key in comp) {
         keys.add(key);
@@ -243,18 +250,18 @@
         if (addedProps.has(key)) continue;
         // 过滤掉下划线开头的私有属性、内部字段以及基础字段
         if (key.startsWith('_') || key === 'node' || key === 'enabled' || key === 'uuid') continue;
-        
+
         // 过滤掉函数
         try {
           if (typeof comp[key] === 'function') continue;
-        } catch(e) { continue; }
+        } catch (e) { continue; }
 
         try {
           let val = comp[key];
           if (val === undefined) continue;
-          
+
           let type = typeof val;
-          
+
           if (val === null) {
             this.addProp(compProps, key, 'null', 'string');
           } else if (type === 'number') {
@@ -266,7 +273,7 @@
           } else if (type === 'object') {
             // 识别 Cocos 特殊对象类型
             const constructorName = val.constructor?.name;
-            
+
             if (constructorName === 'Color' || (val.r !== undefined && val.g !== undefined && val.b !== undefined)) {
               this.addColor(compProps, key, val);
             } else if (constructorName === 'Vec3' || (val.x !== undefined && val.y !== undefined && val.z !== undefined)) {
@@ -279,15 +286,15 @@
               const isNode = utils.isNode(val);
               const isComp = utils.isComponent(val);
               const isAsset = utils.isAsset(val);
-              
+
               let targetUuid = val.uuid || val._uuid;
               if (isComp && val.node) {
                 targetUuid = val.node.uuid || val.node._id;
               }
-              
+
               const compName = utils.getComponentName(val);
               let displayName = val.name || val._name || (val.node ? val.node.name : '') || compName || 'Reference';
-              
+
               // 统一显示格式：显示所属节点名称
               if (isNode || isComp) {
                 displayName = isNode ? val.name : (val.node ? val.node.name : 'Unknown');
@@ -314,7 +321,7 @@
               });
             }
           }
-        } catch (e) {}
+        } catch (e) { }
       }
     },
 

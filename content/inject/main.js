@@ -2,7 +2,7 @@
  * CC Inspector - 主入口文件
  * 加载所有模块并处理消息通信
  */
-(function() {
+(function () {
   // 确保全局命名空间存在
   window.__CCInspector = window.__CCInspector || {};
 
@@ -10,7 +10,7 @@
   function waitForModules(callback, maxRetries = 50) {
     const required = ['utils', 'nodeTree', 'nodeProps', 'performance', 'textureReplace', 'nodeHighlight'];
     let retries = 0;
-    
+
     const check = () => {
       const allLoaded = required.every(mod => window.__CCInspector[mod]);
       if (allLoaded) {
@@ -62,11 +62,11 @@
         switch (e.data.type) {
           case 'getTree': {
             const tree = scene ? [nodeTree.buildTree(scene)] : [];
-            window.postMessage({ 
-              source: 'cc-inspector-inject', 
-              type: 'tree', 
-              tree: tree, 
-              version: utils.getVersion() 
+            window.postMessage({
+              source: 'cc-inspector-inject',
+              type: 'tree',
+              tree: tree,
+              version: utils.getVersion()
             }, '*');
             break;
           }
@@ -91,27 +91,52 @@
             }, 1000); // 1秒检查一次变化
             break;
           }
-          
+
           case 'getProps': {
-            const node = utils.getNodeByUuid(scene, e.data.uuid);
-            const props = nodeProps.getProps(node);
-            window.postMessage({ source: 'cc-inspector-inject', type: 'props', props: props }, '*');
-            
+            // 先检查是否是 FairyGUI 节点
+            const fairygui = window.__CCInspector?.fairygui;
+            let props = null;
+
+            if (fairygui && e.data.uuid && e.data.uuid.startsWith('fgui_')) {
+              const fguiNode = fairygui.findFairyGUINodeByUuid(scene, e.data.uuid);
+              if (fguiNode && fguiNode.gObject) {
+                props = fairygui.getFairyGUIProps(fguiNode.gObject);
+              }
+            } else {
+              const node = utils.getNodeByUuid(scene, e.data.uuid);
+              if (node) {
+                props = nodeProps.getProps(node);
+              }
+            }
+
+            if (props) {
+              window.postMessage({ source: 'cc-inspector-inject', type: 'props', props: props }, '*');
+            }
+
             // 选中节点时同时高亮显示
-            if (node && nodeHighlight) {
+            if (nodeHighlight) {
               nodeHighlight.highlightNode(e.data.uuid);
             }
             break;
           }
-          
+
           case 'setProp': {
-            const node = utils.getNodeByUuid(scene, e.data.uuid);
-            if (node && nodeProps) {
-              nodeProps.setProp(node, e.data.comp, e.data.prop, e.data.value);
+            // 检查是否是 FairyGUI 节点
+            const fairygui = window.__CCInspector?.fairygui;
+            if (fairygui && e.data.uuid && e.data.uuid.startsWith('fgui_')) {
+              const fguiNode = fairygui.findFairyGUINodeByUuid(scene, e.data.uuid);
+              if (fguiNode && fguiNode.gObject) {
+                fairygui.setGObjectProp(fguiNode.gObject, e.data.prop, e.data.value);
+              }
+            } else {
+              const node = utils.getNodeByUuid(scene, e.data.uuid);
+              if (node && nodeProps) {
+                nodeProps.setProp(node, e.data.comp, e.data.prop, e.data.value);
+              }
             }
             break;
           }
-          
+
           case 'setVec': {
             const node = utils.getNodeByUuid(scene, e.data.uuid);
             if (node && nodeProps) {
@@ -119,7 +144,7 @@
             }
             break;
           }
-          
+
           case 'setSize': {
             const node = utils.getNodeByUuid(scene, e.data.uuid);
             if (node && nodeProps) {
@@ -127,7 +152,7 @@
             }
             break;
           }
-          
+
           case 'setColor': {
             const node = utils.getNodeByUuid(scene, e.data.uuid);
             if (node && nodeProps) {
@@ -156,47 +181,47 @@
         switch (e.data.type) {
           case 'getPerf': {
             const perfData = performance.getPerfData();
-            window.postMessage({ 
-              source: 'cc-inspector-float-inject', 
-              type: 'perf', 
-              data: perfData 
+            window.postMessage({
+              source: 'cc-inspector-float-inject',
+              type: 'perf',
+              data: perfData
             }, '*');
             break;
           }
-          
+
           case 'getSpriteNodes': {
             const scene = utils.getScene();
             const nodes = nodeTree.findSpriteNodes(scene);
-            window.postMessage({ 
-              source: 'cc-inspector-float-inject', 
-              type: 'spriteNodes', 
-              nodes: nodes 
+            window.postMessage({
+              source: 'cc-inspector-float-inject',
+              type: 'spriteNodes',
+              nodes: nodes
             }, '*');
             break;
           }
-          
+
           case 'replaceSpriteTexture': {
             textureReplace.replaceSpriteTexture(e.data.uuid, e.data.imageData)
               .then(result => {
-                window.postMessage({ 
-                  source: 'cc-inspector-float-inject', 
-                  type: 'replaceResult', 
-                  ...result 
+                window.postMessage({
+                  source: 'cc-inspector-float-inject',
+                  type: 'replaceResult',
+                  ...result
                 }, '*');
               });
             break;
           }
-          
+
           case 'resetSpriteTexture': {
             const result = textureReplace.resetSpriteTexture(e.data.uuid);
-            window.postMessage({ 
-              source: 'cc-inspector-float-inject', 
-              type: 'resetResult', 
-              ...result 
+            window.postMessage({
+              source: 'cc-inspector-float-inject',
+              type: 'resetResult',
+              ...result
             }, '*');
             break;
           }
-          
+
           case 'highlightNode': {
             nodeHighlight.highlightNode(e.data.uuid);
             break;

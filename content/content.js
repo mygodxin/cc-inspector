@@ -24,8 +24,9 @@ async function injectAllScripts() {
   // 注入顺序很重要：先加载工具类，再加载依赖工具类的模块，最后加载主入口
   const modules = [
     'content/inject/cc-utils.js',       // 工具类 (无依赖)
-    'content/inject/node-tree.js',      // 节点树 (依赖 cc-utils)
-    'content/inject/node-props.js',     // 节点属性 (依赖 cc-utils)
+    'content/inject/fairygui.js',       // FairyGUI 扩展 (依赖 cc-utils)
+    'content/inject/node-tree.js',      // 节点树 (依赖 cc-utils, fairygui)
+    'content/inject/node-props.js',     // 节点属性 (依赖 cc-utils, fairygui)
     'content/inject/performance.js',    // 性能监控 (依赖 cc-utils)
     'content/inject/texture-replace.js', // 纹理替换 (依赖 cc-utils)
     'content/inject/node-highlight.js', // 节点高亮 (依赖 cc-utils)

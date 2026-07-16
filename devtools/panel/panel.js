@@ -13,7 +13,7 @@ function connectPort() {
   try {
     port = chrome.runtime.connect({ name: 'panel' });
     isPortDisconnected = false;
-    
+
     port.onMessage.addListener(msg => {
       if (msg.type === 'tree') {
         const json = JSON.stringify(msg.data);
@@ -24,7 +24,7 @@ function connectPort() {
           // 更新节点数量显示
           const count = countNodes(msg.data);
           document.getElementById('nodeCount').textContent = `(${count}个节点)`;
-          
+
           // 如果有搜索内容，重新应用搜索
           const searchTerm = document.getElementById('searchInput').value;
           if (searchTerm) {
@@ -108,7 +108,29 @@ const nodeTypeIcons = {
   light: '💡',
   animation: '🎬',
   canvas: '🖥️',
-  asset: '📄'
+  asset: '📄',
+
+  // FairyGUI 组件图标
+  groot: '🌐',
+  gcomponent: '🧩',
+  gbutton: '🔘',
+  glabel: '🏷️',
+  gprogressbar: '📊',
+  gslider: '🎚️',
+  gscrollbar: '📜',
+  gtextfield: '📝',
+  ginputtextfield: '✏️',
+  grichtextfield: '📄',
+  gimage: '🖼️',
+  ggroup: '📁',
+  glist: '📋',
+  gcombobox: '📑',
+  ggraph: '🔷',
+  gloader: '📥',
+  gtree: '🌳',
+  gmovieclip: '🎞️',
+  guipanel: '🎛️',
+  fgui: '🧚'
 };
 
 function getNodeIcon(nodeType) {
@@ -119,25 +141,25 @@ function renderTree(nodes) {
   const container = document.getElementById('nodeTree');
   container.innerHTML = '';
   if (!nodes) return;
-  
+
   function createNode(node, depth = 0) {
     const wrapper = document.createElement('div');
     wrapper.className = 'tree-item';
-    
+
     const div = document.createElement('div');
     div.className = 'tree-node' + (node.active === false ? ' active-false' : '');
     div.style.paddingLeft = (depth * 16) + 'px';
     div.dataset.uuid = node.uuid;
-    
+
     const hasChildren = node.children && node.children.length > 0;
     const isExpanded = expandedNodes.has(node.uuid);
     const icon = getNodeIcon(node.nodeType);
     div.innerHTML = `<span class="toggle">${hasChildren ? (isExpanded ? '▼' : '▶') : '  '}</span><span class="node-icon">${icon}</span><span class="name">${escapeHtml(node.name)}</span>`;
-    
+
     if (node.uuid === selectedNode) div.classList.add('selected');
-    
+
     wrapper.appendChild(div);
-    
+
     let childrenContainer = null;
     if (hasChildren) {
       childrenContainer = document.createElement('div');
@@ -146,7 +168,7 @@ function renderTree(nodes) {
       node.children.forEach(child => childrenContainer.appendChild(createNode(child, depth + 1)));
       wrapper.appendChild(childrenContainer);
     }
-    
+
     div.onclick = e => {
       e.stopPropagation();
       const toggle = div.querySelector('.toggle');
@@ -171,10 +193,10 @@ function renderTree(nodes) {
     div.onmouseleave = () => {
       port.postMessage({ type: 'clearHighlight', tabId: chrome.devtools.inspectedWindow.tabId });
     };
-    
+
     return wrapper;
   }
-  
+
   nodes.forEach(n => container.appendChild(createNode(n)));
 }
 
@@ -182,16 +204,16 @@ function renderProps(props) {
   const container = document.getElementById('properties');
   container.innerHTML = '';
   if (!props) return;
-  
+
   props.forEach(comp => {
     const group = document.createElement('div');
     group.className = 'prop-group';
     group.innerHTML = `<div class="prop-group-title">${comp.name}</div>`;
-    
+
     comp.properties.forEach(p => {
       const row = document.createElement('div');
       row.className = 'prop-row';
-      
+
       if (p.type === 'vec2') {
         row.innerHTML = `<span class="prop-name">${p.name}</span><span class="prop-value prop-multi">
           <label>X</label><input type="number" step="0.1" value="${p.x}" data-field="x">
@@ -245,7 +267,8 @@ function renderProps(props) {
         if (p.options && p.options.length > 0) {
           p.options.forEach(opt => {
             const selected = opt.value === p.value ? 'selected' : '';
-            optionsHtml += `<option value="${opt.value}" ${selected}>${opt.name}</option>`;
+            const label = opt.label || opt.name || opt.value;
+            optionsHtml += `<option value="${opt.value}" ${selected}>${label}</option>`;
           });
         }
         row.innerHTML = `<span class="prop-name">${p.name}</span><span class="prop-value"><select class="enum-select">${optionsHtml}</select></span>`;
@@ -263,7 +286,7 @@ function renderProps(props) {
         const isNull = !p.uuid && !p.value;
         const typeIcon = isNull ? '📦' : getNodeIcon(p.nodeType);
         const canJump = p.uuid && p.nodeType !== 'asset';
-        
+
         row.innerHTML = `<span class="prop-name">${p.name}</span><span class="prop-value">
           <div class="node-ref-box" title="${canJump ? '点击在节点树中定位' : (isNull ? 'null' : '')}">
             <div class="node-ref-type"><span class="node-ref-type-icon">${typeIcon}</span>${escapeHtml(p.targetType || 'cc.Node')}</div>
@@ -286,7 +309,7 @@ function renderProps(props) {
       }
       group.appendChild(row);
     });
-    
+
     container.appendChild(group);
   });
 }
@@ -328,7 +351,7 @@ function performSearch(term, shouldScroll) {
 
   term = term.toLowerCase();
   searchResults = [];
-  
+
   // 递归查找匹配节点
   function findMatches(nodes) {
     nodes.forEach(node => {
@@ -338,15 +361,15 @@ function performSearch(term, shouldScroll) {
       if (node.children) findMatches(node.children);
     });
   }
-  
+
   if (treeData) findMatches(treeData);
-  
+
   countSpan.textContent = searchResults.length > 0 ? `${searchResults.length} 个结果` : '无结果';
-  
+
   // 高亮所有匹配项
   document.querySelectorAll('.tree-node.search-match').forEach(n => n.classList.remove('search-match'));
   document.querySelectorAll('.tree-node.search-current').forEach(n => n.classList.remove('search-current'));
-  
+
   searchResults.forEach(uuid => {
     const el = document.querySelector(`.tree-node[data-uuid="${uuid}"]`);
     if (el) el.classList.add('search-match');
@@ -363,10 +386,10 @@ function navigateToSearchResultByUuid(uuid) {
 
   // 展开所有父节点
   expandToNode(uuid);
-  
+
   // 重新渲染树
   renderTree(treeData);
-  
+
   // 滚动到目标并选中
   const targetEl = document.querySelector(`.tree-node[data-uuid="${uuid}"]`);
   if (targetEl) {
@@ -374,10 +397,10 @@ function navigateToSearchResultByUuid(uuid) {
     targetEl.classList.add('selected');
     selectedNode = uuid;
     targetEl.scrollIntoView({ block: 'center', behavior: 'smooth' });
-    
+
     // 获取属性
     safePostMessage({ type: 'getProps', tabId: chrome.devtools.inspectedWindow.tabId, uuid: uuid });
-    
+
     // 触发高亮
     safePostMessage({ type: 'highlightNode', tabId: chrome.devtools.inspectedWindow.tabId, uuid: uuid });
   }
@@ -386,7 +409,7 @@ function navigateToSearchResultByUuid(uuid) {
 function navigateToSearchResult(index) {
   const uuid = searchResults[index];
   navigateToSearchResultByUuid(uuid);
-  
+
   // 重新应用搜索高亮
   searchResults.forEach(u => {
     const el = document.querySelector(`.tree-node[data-uuid="${u}"]`);
