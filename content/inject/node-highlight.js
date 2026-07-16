@@ -86,16 +86,11 @@
         const width = gObject.width || 0;
         const height = gObject.height || 0;
 
-        console.log('[CC Inspector] getGObjectWorldBounds - gObject:', gObject.name, 'width:', width, 'height:', height);
-
         // 使用 FairyGUI 的 localToGlobal 方法获取世界坐标
         if (gObject.localToGlobal) {
           // 获取左上角和右下角的世界坐标
           const topLeft = gObject.localToGlobal(0, 0);
           const bottomRight = gObject.localToGlobal(width, height);
-
-          console.log('[CC Inspector] - topLeft:', topLeft, 'bottomRight:', bottomRight);
-
           if (!topLeft || !bottomRight) return null;
 
           // 获取 Canvas 的位置
@@ -103,7 +98,6 @@
           if (!canvas) return null;
 
           const canvasRect = canvas.getBoundingClientRect();
-          console.log('[CC Inspector] - canvasRect:', canvasRect);
 
           // localToGlobal 返回的是相对于 Canvas 内容区域的坐标
           // 需要加上 Canvas 在浏览器窗口中的偏移
@@ -113,11 +107,10 @@
             width: Math.abs(bottomRight.x - topLeft.x),
             height: Math.abs(bottomRight.y - topLeft.y)
           };
-          console.log('[CC Inspector] - result:', result);
+
           return result;
         }
 
-        console.log('[CC Inspector] - no localToGlobal');
         return null;
       } catch (err) {
         console.warn('[CC Inspector] 获取 GObject 边界失败', err);
